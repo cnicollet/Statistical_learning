@@ -1,0 +1,41 @@
+---
+title: "Least squares method"
+output: html_notebook
+---
+
+```{r}
+lm_auto <- lm(mpg ~ horsepower, data = Auto)
+summary(lm_auto)
+confint(lm_auto)
+predict(lm_auto, data.frame(horsepower = c(98)))
+predict(lm_auto, data.frame(horsepower = c(98)), interval = 'confidence')
+predict(lm_auto, data.frame(horsepower = c(98)), interval = 'prediction')
+```
+
+```{}
+plot(Auto$horsepower, Auto$mpg)
+abline(lm_auto, col = 'red')
+```
+
+```{r echo=F}
+library(ISLR)
+library(leaps)
+data("Hitters")
+Hitters <- na.omit(Hitters)
+regfit.full <- regsubsets(Salary  ~ ., data = Hitters, nvmax = 19)
+```
+The summary() function also returns R2, RSS, adjusted R2, Cp, and BIC.
+We can examine these to try to select the best overall model.
+
+```{r echo=F}
+reg_summary <- summary(regfit.full)
+names(reg_summary)
+reg_summary$rsq
+par(mfrow = c(2, 2))
+plot(reg_summary$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+plot(reg_summary$adjr2, xlab = "Number of Variables", ylab = "Adjusted RSq", type = "l")
+which.max(reg_summary$adjr2)
+points(11, reg_summary$adjr2[11], col = "red", pch = 15)
+plot(regfit.full, scale = "bic")
+coef(regfit.full, 6)
+```

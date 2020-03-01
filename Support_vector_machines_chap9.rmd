@@ -1,0 +1,171 @@
+---
+title: "Support Vector Machines"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+7. In this problem, you will use support vector approaches in order to predict whether a given car gets high or low gas mileage based on the Auto data set.
+
+  a = Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+
+```{r message=FALSE}
+data(Auto)
+library(dplyr)
+auto <- Auto %>%
+  mutate(high = as.factor(ifelse(mpg > median(mpg), 1, 0 ))) %>%
+  select(-mpg)
+```
+
+  b - Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+```{r}
+library(e1071)
+set.seed(123)
+tune_linear_auto <- tune(svm, high ~ ., data = auto, kernel = 'linear', range = list(cost = c(.001, .01, .1, 1.5, 10, 100)))
+
+summary(tune_linear_auto)
+```
+
+  => cost = .01 results in the lowest cross-validation error rate.  
+
+  c - Now repeat (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+```{r}
+library(e1071)
+set.seed(123)
+tune_radial_auto <- tune(svm, high ~ ., data = auto, kernel = 'radial', ranges = list(cost = c(.001, .01, .1, 1.5, 10, 100), gamma=c(0.5,1,2,3,4) ))
+
+summary(tune_radial_auto)
+```
+
+  => cost = 1.5 and gamma = .5 give the best result with cross-validation error = 0.08166667 using radial kernel.
+  
+```{r}
+set.seed(123)
+tune_radial_auto <- tune(svm, high ~ ., data = auto, kernel = 'polynomial', ranges = list(cost = c(.001, .01, .1, 1.5, 10, 100), gamma=c(0.5,1,2,3,4) ))
+
+summary(tune_radial_auto)
+```
+   
+   => cost = 0.001 and gamma = 4 give the best result with cross-validation error = 0.08673077  using polynomial kernel.
+  
+  d - Make some plots to back up your assertions in (b) and (c). Hint: In the lab, we used the plot() function for svm objects only in cases with p = 2. When p > 2, you can use the plot()
+function to create plots displaying pairs of variables at a time. Essentially, instead of typing
+> plot(svmfit , dat)
+where svmfit contains your fitted model and dat is a data frame containing your data, you can type
+> plot(svmfit , dat , x1???x4)
+in order to plot just the first and fourth variables. However, you must replace x1 and x4 with the correct variable names. To find out more, type ?plot.svm.
+
+```{r}
+plot(svm_auto, auto, displacement~acceleration)
+plot(svm_auto, auto, displacement~horsepower)
+plot(svm_auto, auto, acceleration~horsepower)
+```
+
+8. This problem involves the OJ data set which is part of the ISLR package.
+
+  a - Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+
+```{r}
+set.seed(123)
+trainIndex <- sample(1:nrow(OJ), 800)
+train <- OJ[trainIndex, ]
+test <- OJ[-trainIndex, ]
+```
+
+  b - Fit a support vector classifier to the training data using cost=0.01, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary
+statistics, and describe the results obtained.
+
+```{r}
+set.seed(123)
+svm_oj <- svm(Purchase ~  ., data = train, kernel = 'linear', cost = .01)
+summary(svm_oj)
+```
+
+  => 441 support vectors are used in this model, which is huge because of linear kernel.
+  
+  c - What are the training and test error rates?
+
+```{r}
+table(train$Purchase, predict(svm_oj, newdata = train))
+table(test$Purchase, predict(svm_oj, newdata = test))
+
+1 - ((430 + 235) / nrow(train))
+1 - ((148 + 77) / nrow(test))
+```
+
+  d - Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10.
+
+```{r}
+set.seed(123)
+tune_oj <- tune(svm, Purchase ~ ., data = train, kernel = 'linear', range = list(cost = c(.01, .1, .5, 1, 5, 10)))
+
+summary(tune_oj)
+```
+
+  e - Compute the training and test error rates using this new value for cost.
+
+```{r}
+set.seed(123)
+svm_oj <- svm(Purchase ~  ., data = train, kernel = 'linear', cost = 1)
+summary(svm_oj)
+
+# train error
+table(train$Purchase, predict(svm_oj, newdata = train))
+1 - ((428 + 238) / nrow(train))
+
+# test error
+table(test$Purchase, predict(svm_oj, newdata = test))
+1 - ((150 + 77) / nrow(test))
+```
+
+  => train error = 0.17, test error = 0.1592593
+  
+  f - Repeat parts (b) through (e) using a support vector machine with a radial kernel. Use the default value for gamma.
+
+```{r}
+set.seed(123)
+svm_radial_oj <- svm(Purchase ~  ., data = train, kernel = 'radial', cost = 1)
+summary(svm_radial_oj)
+
+
+set.seed(123)
+tune_oj_radial <- tune(svm, Purchase ~ ., data = train, kernel = 'radial', range = list(cost = c(.01, .1, .5, 1, 5, 10)))
+
+summary(tune_oj_radial)
+
+
+# test error
+table(test$Purchase, predict(tune_oj_radial$best.model, newdata = test))
+1 - ((153 + 74) / nrow(test))
+```
+  
+  => train error = .176 and test error = .159.
+  
+  g - Repeat parts (b) through (e) using a support vector machine with a polynomial kernel. Set degree=2.
+
+```{r}
+set.seed(123)
+svm_poly_oj <- svm(Purchase ~  ., data = train, kernel = 'polynomial', degree = 2)
+summary(svm_poly_oj)
+
+
+tune_oj_poly <- tune(svm, Purchase ~ ., data = train, kernel = 'polynomial', degree = 2, range = list(cost = c(.01, .1, .5, 1, 5, 10)))
+
+summary(tune_oj_poly)
+
+
+# test error
+table(test$Purchase, predict(tune_oj_poly$best.model, newdata = test))
+1 - ((157 + 66) / nrow(test))
+```
+
+  => train error = .18 and test error = .174
+
+  h - Overall, which approach seems to give the best results on this data?
+  
+  => Linear and radial kernel give roughly the same result, but linear kernel is less prove to overfitting.
+  

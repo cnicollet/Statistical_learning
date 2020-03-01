@@ -1,0 +1,215 @@
+---
+title: "Classification - Chap4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+6 - Logistic regression:  
+
+Suppose we collect data for a group of students in a statistics classwith variables X1 = hours studied, X2 = undergrad GPA, and Y = receive an A. We fit a logistic regression and produce estimated coefficient, ????0 = ???6, ????1 = 0.05, ????2 = 1.
+
+  a - Estimate the probability that a student who studies for 40 h and has an undergrad GPA of 3.5 gets an A in the class.
+
+```{r}
+p(x) <- exp(B0 + B1 * x1 + B2 * x2) / (1 +exp(B0 + B1 * x1 + B2 * x2)) 
+
+exp(-6 + .05 * 40 + 1 * 3.5) / (1 + exp(-6 + .05 * 40 + 1 * 3.5))
+```
+
+  b - How many hours would the student in part (a) need to study to have a 50 % chance of getting an A in the class?
+  
+```{r}
+.5 = exp(-6 + .05 * hours + 1 * 3.5) / (1 + exp(-6 + .05 * hours + 1 * 3.5))
+log(.5 / 1 - .5) = -6 + .05 * hours + 1 * 3.5
+hours = (log(.5 / .5) + 2.5) / .05  
+```
+
+8 - Suppose that we take a data set, divide it into equally-sized training and test sets, and then try out two different classification procedures.
+First we use logistic regression and get an error rate of 20 % on the training data and 30 % on the test data. Next we use 1-nearest neighbors (i.e. K = 1) and get an average error rate (averaged over both test and training data sets) of 18 %. Based on these results, which method should we prefer to use for classification of new observations? Why?
+
+Looking at the training error for logistic regression, we can see that it suffers from high bias. So maybe a logistic regression is not the best models to fit the data as the decision boudary is not linear.
+
+In the others hand, k=1 is equivalent to a flexible statistical learning which leads to overfitting. It would be better to have the true test error in order to make a decision about the best model.
+
+9. This problem has to do with odds.
+  a - On average, what fraction of people with an odds of 0.37 of defaulting on their credit card payment will in fact default?
+
+```{r}
+
+```
+
+  b - Suppose that an individual has a 16 % chance of defaulting on her credit card payment. What are the odds that she will default?
+  
+```{r}
+
+```
+  
+Applied
+
+10. This question should be answered using the Weekly data set, which is part of the ISLR package. This data is similar in nature to the Smarket data from this chapter???s lab, except that it contains 1, 089 weekly returns for 21 years, from the beginning of 1990 to the end of
+2010.
+
+```{r}
+library(ISLR)
+data(Weekly)
+names(Weekly)
+```
+
+  a - Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?
+
+```{r}
+summary(Weekly)
+pairs(Weekly)
+```
+
+  - ???Year??? and ???Volume??? are positively correlated.
+  
+  b - Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+
+```{r}
+glm_weekly <- glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, data = Weekly, family = binomial)
+summary(glm_weekly)$coef
+```
+
+- Lag2 seems to be related to the response and it is statistically significant.
+
+  c - Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+
+```{r}
+library(caret)
+table(Weekly$Direction, predict(glm_weekly, Weekly, type = "response") > .5)
+```
+
+  d - Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+
+```{r}
+train <- Weekly[Weekly$Year %in% c(2009, 2010), ]
+test <- subset(Weekly, !(Year == 2009 | Year == 2010))
+
+glm_lag <- glm(Direction ~ Lag2, data = train, family = binomial)
+
+summary(glm_lag)$coef  
+
+table(test$Direction, predict(glm_lag, test, type = "response") > .5)
+```
+
+glm_accuracy = (18 + 524) / (18 + 20 + 423 + 524) / .55
+
+  e - Repeat (d) using LDA.
+  
+```{r}
+library(MASS)
+lda_weekly <- lda(Direction ~ Lag2, data = train)
+summary(lda_weekly)  
+
+table(test$Direction, predict(lda_weekly, test)$class)
+```
+  
+  lda_accuracy = (17 + 525) / (17 + 19 + 424 + 525) / .55
+  
+  f - Repeat (d) using QDA.
+```{r}
+library(MASS)
+qda_weekly <- qda(Direction ~ Lag2, data = train)
+summary(qda_weekly)$coef  
+
+table(test$Direction, predict(qda_weekly, test)$class)
+```
+ 
+ qda_accuracy = (21 + 524) / (21 + 20 + 420 + 524) = .553
+ 
+  g - Repeat (d) using KNN with K = 1.
+  
+```{r}
+library(class)
+set.seed(1234)
+knn_weekly <- knn(train = as.matrix(train$Lag2), test = as.matrix(test$Lag2), cl = train$Direction, k = 1)
+table(test$Direction, knn_weekly)
+mean(knn_weekly == test$Direction)
+```
+  
+knn_accuracy = (341 + 170) / (341 + 170 + 271 + 203) = .52
+  
+  h - Which of these methods appears to provide the best results on this data?
+    * Logistic regression and LDA seem to give better results.
+  
+  (i) Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held out data. Note that you should also experiment with values for K in the KNN classifier.
+ 
+```{r}
+set.seed(1234)
+knn_weekly <- knn(as.matrix(train$Lag2), as.matrix(test$Lag2), train$Direction, k = 18)
+table(test$Direction, knn_weekly)
+mean(knn_weekly == test$Direction)
+```
+ 
+ 
+ 
+11. In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set.
+
+  a - Create a binary variable, mpg01, that contains a 1 if mpg contains a value above its median, and a 0 if mpg contains a value below its median. 
+
+```{r}
+library(dplyr)
+auto <- Auto %>%
+  mutate(mpgbin = ifelse(Auto$mpg > median(Auto$mpg), 1, 0))
+```
+
+ b - Explore the data graphically in order to investigate the association between mpg01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.
+ 
+```{r}
+pairs(auto)
+```
+
+- It seems that horsepower, displacement, acceleration and weight are highly correlated.
+
+c - Split the data into a training set and a test set
+
+```{r}
+set.seed(123)
+library(caret)
+trainIndex <- createDataPartition(auto$mpgbin, p = .75, list = F)
+train <- auto[trainIndex, ]
+test <- auto[-trainIndex, ]
+```
+
+  d - Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+  
+```{r}
+lda_auto <- lda(mpgbin ~ displacement + horsepower + acceleration + weight, data = train)
+table(test$mpgbin, predict(lda_auto, test)$class)
+```
+  
+  e - Perform QDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+  
+```{r}
+qda_auto <- qda(mpgbin ~ displacement + horsepower + acceleration + weight, data = train)
+table(test$mpgbin, predict(qda_auto, test)$class)
+```
+  
+  f - Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+  
+```{r}
+glm_auto <- glm(mpgbin ~ displacement + horsepower + acceleration + weight, data = train, family = binomial)
+table(test$mpgbin, predict(glm_auto, test, type = 'response') > .5)
+```
+  
+  g - Perform KNN on the training data, with several values of K, in order to predict mpg01. Use only the variables that seemed most associated with mpg01 in (b). What test errors do you obtain? Which value of K seems to perform the best on this data set?
+```{r}
+#nor <- function(x) {
+#  (x - min(x)) / (max(x) - min(x))
+#}
+
+#train_norm <- as.data.frame(lapply(train[, 3:6], nor))
+#test_norm <- as.data.frame(lapply(test[, 3:6], nor))
+#knn_auto <- knn(train = train[, 3:6], test = test[, 3:6], cl = train$mpgbin, k = 10)
+set.seed(123)
+knn_auto <- knn(train = train_norm, test = test_norm, cl = train$mpgbin, k = 5)
+knn_auto <- knn(train = train_norm, test = test_norm, cl = train$mpgbin, k = 7)
+knn_auto <- knn(train = train_norm, test = test_norm, cl = train$mpgbin, k = 10)
+table(test$mpgbin, knn_auto)
+```
+
+k = 7 gives the best result.
